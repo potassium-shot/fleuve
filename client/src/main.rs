@@ -48,10 +48,19 @@ fn App() -> Element {
     }
 }
 
+#[derive(Clone, Copy)]
+struct DndContext {
+    initial_offset: Signal<Option<(f64, f64)>>,
+    offset: Signal<(f64, f64)>,
+}
+
 #[component]
 fn Root() -> Element {
-    let mut dnd_offset: Signal<Option<(f64, f64)>> = use_signal(|| None);
-    use_context_provider(move || dnd_offset);
+    let mut dnd_context = DndContext {
+        initial_offset: use_signal(|| None),
+        offset: use_signal(|| (0.0, 0.0)),
+    };
+    use_context_provider(move || dnd_context);
 
     rsx! {
         div {
@@ -73,14 +82,15 @@ fn Root() -> Element {
             top: 0,
             bottom: 0,
             z_index: 999,
-            background_color: "red",
-            display: if dnd_offset() { "block" } else { "none" },
+            background_color: "rgba(255, 0, 0, 0.2)",
+            display: if (dnd_context.initial_offset)().is_some() { "block" } else { "none" },
 
-            onmouseup: move |_| dnd_offset.set(None),
+            onmouseup: move |_| dnd_context.initial_offset.set(None),
             onmousemove: move |e| {
-                if let Some(offset) = dnd_offset.write().as_mut() {
-                    offset.x += e.client_coordinates().x;
-                    offset.y += e.client_coordinates().y;
+                if let Some(initial_offset) = (dnd_context.initial_offset)() {
+                    let mut offset = dnd_context.offset.write();
+                    offset.0 = e.client_coordinates().x - initial_offset.0;
+                    offset.1 = e.client_coordinates().y - initial_offset.1;
                 }
             }
         }
