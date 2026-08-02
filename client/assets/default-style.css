@@ -1,0 +1,23 @@
+:root {
+    color: var(--theme-text);
+    background-color: var(--theme-base);
+    font-family:
+        Nunito,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    font-size: 14pt;
+}
+
+.block {
+    display: flex;
+    padding: 0.5rem 2rem;
+    min-width: 250px;
+    align-items: center;
+    justify-content: center;
+
+    background-color: var(--theme-surface);
+    border: 1px solid var(--theme-lighten);
+    box-shadow: 1px 1px 3px var(--theme-crust);
+}
