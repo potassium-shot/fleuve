@@ -1,6 +1,12 @@
+use std::collections::HashSet;
+
 use dioxus::prelude::*;
 
+use crate::utils::{CallbackSignal, use_callback_signal};
+
 mod components;
+mod constants;
+mod utils;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -49,49 +55,77 @@ fn App() -> Element {
 }
 
 #[derive(Clone, Copy)]
-struct DndContext {
-    initial_offset: Signal<Option<(f64, f64)>>,
-    offset: Signal<(f64, f64)>,
+struct MouseMovement(Memo<(f64, f64)>);
+
+#[derive(Clone, Copy)]
+struct DndCancel(CallbackSignal);
+
+#[derive(Clone, Copy)]
+struct DndConfirm(Signal<bool>);
+
+fn use_mouse_movement() -> Memo<(f64, f64)> {
+    use_context::<MouseMovement>().0
+}
+
+#[derive(Clone, Copy)]
+struct Selection(Signal<HashSet<i64>>);
+
+fn use_selection() -> Signal<HashSet<i64>> {
+    use_context::<Selection>().0
 }
 
 #[component]
 fn Root() -> Element {
-    let mut dnd_context = DndContext {
-        initial_offset: use_signal(|| None),
-        offset: use_signal(|| (0.0, 0.0)),
-    };
-    use_context_provider(move || dnd_context);
+    let mut last_mouse_coords = use_signal(|| (0.0_f64, 0.0_f64));
+    let mut mouse_pos = use_signal(|| (0.0_f64, 0.0_f64));
+    let mut dnd_cancel = use_callback_signal();
+    use_context_provider(move || DndCancel(dnd_cancel));
+    let dnd_confirm = use_signal(|| false);
+    use_context_provider(move || DndConfirm(dnd_confirm));
+
+    let mouse_movement = use_memo(move || {
+        let coords = mouse_pos();
+        let mut last_coords = last_mouse_coords.write();
+        let delta = (coords.0 - last_coords.0, coords.1 - last_coords.1);
+        *last_coords = coords;
+        delta
+    });
+    use_context_provider(move || MouseMovement(mouse_movement));
+
+    let mut selection = use_signal(HashSet::new);
+    use_context_provider(move || Selection(selection));
 
     rsx! {
         div {
             id: "canvas",
             width: "100%",
             height: "100%",
-            position: "relative",
+            position: "absolute",
+
+            onmousemove: move |e| {
+                mouse_pos.set((e.client_coordinates().x, e.client_coordinates().y));
+            },
+
+            onmouseup: move |_| {
+                dnd_cancel.trigger();
+            },
+
+            onmouseleave: move |_| {
+                dnd_cancel.trigger();
+            },
+
+            onclick: move |_| {
+                selection.write().clear();
+            },
 
             crate::components::nodes::note::Note {
+                node_id: 0,
                 position: (200, 160),
             }
-        }
 
-        div {
-            id: "dnd_capture",
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            z_index: 999,
-            background_color: "rgba(255, 0, 0, 0.2)",
-            display: if (dnd_context.initial_offset)().is_some() { "block" } else { "none" },
-
-            onmouseup: move |_| dnd_context.initial_offset.set(None),
-            onmousemove: move |e| {
-                if let Some(initial_offset) = (dnd_context.initial_offset)() {
-                    let mut offset = dnd_context.offset.write();
-                    offset.0 = e.client_coordinates().x - initial_offset.0;
-                    offset.1 = e.client_coordinates().y - initial_offset.1;
-                }
+            crate::components::nodes::note::Note {
+                node_id: 1,
+                position: (400, 320),
             }
         }
     }

@@ -8,6 +8,8 @@
         BlinkMacSystemFont,
         sans-serif;
     font-size: 14pt;
+
+    --selection-marquee-thickness: 2px;
 }
 
 .block {
