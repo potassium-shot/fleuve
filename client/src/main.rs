@@ -60,8 +60,14 @@ struct MouseMovement(Memo<(f64, f64)>);
 #[derive(Clone, Copy)]
 struct DndCancel(CallbackSignal);
 
+#[derive(Default, Clone, Copy)]
+struct DndConfirmData {
+    confirmed: bool,
+    selection: bool,
+}
+
 #[derive(Clone, Copy)]
-struct DndConfirm(Signal<bool>);
+struct DndConfirm(Signal<DndConfirmData>);
 
 fn use_mouse_movement() -> Memo<(f64, f64)> {
     use_context::<MouseMovement>().0
@@ -80,7 +86,10 @@ fn Root() -> Element {
     let mut mouse_pos = use_signal(|| (0.0_f64, 0.0_f64));
     let mut dnd_cancel = use_callback_signal();
     use_context_provider(move || DndCancel(dnd_cancel));
-    let dnd_confirm = use_signal(|| false);
+    let dnd_confirm = use_signal(|| DndConfirmData {
+        confirmed: false,
+        selection: false,
+    });
     use_context_provider(move || DndConfirm(dnd_confirm));
 
     let mouse_movement = use_memo(move || {

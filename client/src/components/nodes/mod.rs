@@ -1,6 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::{DndCancel, DndConfirm, constants::DRAG_DEADZONE, use_mouse_movement, use_selection};
+use crate::{
+    DndCancel, DndConfirm, DndConfirmData, constants::DRAG_DEADZONE, use_mouse_movement,
+    use_selection,
+};
 
 pub mod note;
 
@@ -27,7 +30,7 @@ fn Node(
     use_memo(move || {
         dnd_cancel.get();
         dragging.set(false);
-        dnd_confirm.set(false);
+        dnd_confirm.set(DndConfirmData::default());
     });
 
     let final_position = use_memo(move || {
@@ -45,8 +48,10 @@ fn Node(
 
         let is_in_selection = selection.read().contains(&node_id);
 
-        if dnd_confirm() {
-            if !dragging() && is_in_selection {
+        let confirm = dnd_confirm();
+
+        if confirm.confirmed {
+            if !dragging() && is_in_selection && confirm.selection {
                 write_moved_position.0 += movement.0;
                 write_moved_position.1 += movement.1;
             }
@@ -55,7 +60,9 @@ fn Node(
         } else if (write_moved_position.0 - write_position.0).abs() > DRAG_DEADZONE
             || (write_moved_position.1 - write_position.1).abs() > DRAG_DEADZONE
         {
-            dnd_confirm.set(true);
+            let mut confirm_w = dnd_confirm.write();
+            confirm_w.confirmed = true;
+            confirm_w.selection = is_in_selection;
         }
 
         *write_position
