@@ -1,8 +1,8 @@
-use std::collections::HashSet;
+use std::{cell::Cell, collections::HashMap};
 
 use dioxus::prelude::*;
 
-use crate::utils::{CallbackSignal, use_callback_signal};
+use crate::utils::{CallbackSignal, NeverEq, use_callback_signal};
 
 mod components;
 mod constants;
@@ -55,7 +55,7 @@ fn App() -> Element {
 }
 
 #[derive(Clone, Copy)]
-struct MouseMovement(Memo<(f64, f64)>);
+struct MouseMovement(Memo<NeverEq<(f64, f64)>>);
 
 #[derive(Clone, Copy)]
 struct DndCancel(CallbackSignal);
@@ -69,14 +69,14 @@ struct DndConfirmData {
 #[derive(Clone, Copy)]
 struct DndConfirm(Signal<DndConfirmData>);
 
-fn use_mouse_movement() -> Memo<(f64, f64)> {
+fn use_mouse_movement() -> Memo<NeverEq<(f64, f64)>> {
     use_context::<MouseMovement>().0
 }
 
 #[derive(Clone, Copy)]
-struct Selection(Signal<HashSet<i64>>);
+struct Selection(Signal<HashMap<i64, Cell<(f64, f64)>>>);
 
-fn use_selection() -> Signal<HashSet<i64>> {
+fn use_selection() -> Signal<HashMap<i64, Cell<(f64, f64)>>> {
     use_context::<Selection>().0
 }
 
@@ -97,11 +97,11 @@ fn Root() -> Element {
         let mut last_coords = last_mouse_coords.write();
         let delta = (coords.0 - last_coords.0, coords.1 - last_coords.1);
         *last_coords = coords;
-        delta
+        NeverEq(delta)
     });
     use_context_provider(move || MouseMovement(mouse_movement));
 
-    let mut selection = use_signal(HashSet::new);
+    let mut selection = use_signal(HashMap::new);
     use_context_provider(move || Selection(selection));
 
     rsx! {

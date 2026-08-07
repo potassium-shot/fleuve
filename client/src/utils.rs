@@ -17,3 +17,12 @@ impl CallbackSignal {
 pub fn use_callback_signal() -> CallbackSignal {
     CallbackSignal(use_signal(|| 0))
 }
+
+#[derive(Default, Clone, Copy, Debug)]
+pub struct NeverEq<T>(pub T);
+
+impl<T> PartialEq for NeverEq<T> {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}

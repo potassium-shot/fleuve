@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use dioxus::prelude::*;
 
 use crate::{
@@ -34,7 +36,16 @@ fn Node(
     });
 
     let final_position = use_memo(move || {
-        let movement = movement();
+        let selection_r = selection.read();
+        let base_movement = movement().0;
+        let (self_in_selection, added_movement) = match selection_r.get(&node_id) {
+            Some(sel) => (true, sel.take()),
+            None => (false, (0.0, 0.0)),
+        };
+        let movement = (
+            base_movement.0 + added_movement.0,
+            base_movement.1 + added_movement.1,
+        );
 
         let mut write_moved_position = moved_position.write();
         let mut write_position = position.write();
@@ -46,23 +57,30 @@ fn Node(
             *write_moved_position = *write_position;
         }
 
-        let is_in_selection = selection.read().contains(&node_id);
-
         let confirm = dnd_confirm();
 
         if confirm.confirmed {
-            if !dragging() && is_in_selection && confirm.selection {
+            if !dragging() && self_in_selection && confirm.selection {
                 write_moved_position.0 += movement.0;
                 write_moved_position.1 += movement.1;
             }
 
             *write_position = *write_moved_position;
-        } else if (write_moved_position.0 - write_position.0).abs() > DRAG_DEADZONE
-            || (write_moved_position.1 - write_position.1).abs() > DRAG_DEADZONE
-        {
-            let mut confirm_w = dnd_confirm.write();
-            confirm_w.confirmed = true;
-            confirm_w.selection = is_in_selection;
+        } else {
+            let x_delta = write_moved_position.0 - write_position.0;
+            let y_delta = write_moved_position.1 - write_position.1;
+
+            if x_delta.abs() > DRAG_DEADZONE || y_delta.abs() > DRAG_DEADZONE {
+                let mut confirm_w = dnd_confirm.write();
+                confirm_w.confirmed = true;
+                confirm_w.selection = self_in_selection;
+
+                for (i, sel) in selection_r.iter() {
+                    if *i != node_id {
+                        sel.set((x_delta, y_delta));
+                    }
+                }
+            }
         }
 
         *write_position
@@ -75,7 +93,7 @@ fn Node(
             position: "absolute",
             left: "{final_position().0}px",
             top: "{final_position().1}px",
-            "css-selected": selection.read().contains(&node_id),
+            "css-selected": selection.read().contains_key(&node_id),
 
             onmousedown: move |e| {
                 dragging.set(true);
@@ -90,7 +108,7 @@ fn Node(
                         selection.write().clear();
                     }
 
-                    selection.write().insert(node_id);
+                    selection.write().insert(node_id, Cell::new((0.0, 0.0)));
                 }
             },
 
